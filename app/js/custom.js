@@ -44,7 +44,8 @@ function setupTabs() {
         var target = $(e.target).attr('href');
         if(!target.match('summary')) {
             var int = target.replace("#","");
-            loadCurrentSettings(int);
+            // FIXME: mp035 temporarilly removed this call because the function is undefined
+            // loadCurrentSettings(int);
         }
     });
 }
@@ -145,8 +146,11 @@ function setCSRFTokenHeader(event, xhr, settings) {
 }
 
 function contentLoaded() {
-    pageCurrent = window.location.href.split("?")[1].split("=")[1];
-    pageCurrent = pageCurrent.replace("#","");
+    //pageCurrent = window.location.href.split("?")[1].split("=")[1];
+    //pageCurrent = pageCurrent.replace("#","");
+
+    pageCurrent = window.location.href.split("/").pop();
+
     switch(pageCurrent) {
         case "network_conf":
             getAllInterfaces();

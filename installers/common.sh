@@ -146,7 +146,11 @@ function _create_raspap_directories() {
     # Create a directory to store networking configs
     echo "Creating $raspap_dir/networking"
     sudo mkdir -p "$raspap_dir/networking"
-
+    # Copy existing dhcpcd.conf to use as base config
+    echo "Adding /etc/dhcpcd.conf as base configuration"
+    cat /etc/dhcpcd.conf | sudo tee -a "$raspap_dir/networking/defaults" > /dev/null
+    echo "Changing file ownership of $raspap_dir"
+    sudo chown -R $raspap_user:$raspap_user "$raspap_dir" || _install_status 1 "Unable to change file ownership for '$raspap_dir'"
 }
 
 # Generate hostapd logging and service control scripts
@@ -176,6 +180,36 @@ function _create_lighttpd_scripts() {
     echo "Changing file ownership"
     sudo chown -c root:"$raspap_user" "$raspap_dir/lighttpd/"*.sh || _install_status 1 "Unable change owner and/or group"
     sudo chmod 750 "$raspap_dir/lighttpd/"*.sh || _install_status 1 "Unable to change file permissions"
+    _install_status 0
+}
+
+# Copy extra config files required to configure lighthttpd
+function _install_lighttpd_configs() {
+    _install_log "Copying lighttpd extra config files"
+
+    # Copy config files
+    echo "Copying 50-raspap-router.conf to /etc/lighttpd/conf-available"
+
+    CONFSRC="$webroot_dir/config/50-raspap-router.conf"
+    LTROOT=$(grep "server.document-root" /etc/lighttpd/lighttpd.conf | awk -F '=' '{print $2}' | tr -d " \"")
+
+    # compare values and get difference
+    HTROOT=${webroot_dir/$LTROOT}
+
+    # remove trailing slash if present
+    HTROOT=$(echo "$HTROOT" | sed -e 's/\/$//')
+
+    # substitute values
+    awk "{gsub(\"/REPLACE_ME\",\"$HTROOT\")}1" $CONFSRC > /tmp/50-raspap-router.conf
+
+    # copy into place
+    sudo cp /tmp/50-raspap-router.conf /etc/lighttpd/conf-available/ || _install_status 1 "Unable to copy lighttpd config file into place."
+ 
+
+    # link into conf-enabled
+    echo "Creating link to /etc/lighttpd/conf-enabled"
+    sudo ln -s "/etc/lighttpd/conf-available/50-raspap-router.conf" "/etc/lighttpd/conf-enabled/50-raspap-router.conf" || _install_status 1 "Unable to symlink lighttpd config file (this is normal if the link already exists)."
+    sudo systemctl restart lighttpd.service || _install_status 1 "Unable to restart lighttpd"
     _install_status 0
 }
 
@@ -295,7 +329,7 @@ function _download_latest_files() {
     fi
 
     _install_log "Cloning latest files from github"
-    git clone --branch $branch --depth 1 -c advice.detachedHead=false $git_source_url /tmp/raspap-webgui || _install_status 1 "Unable to download files from github"
+    git clone --recurse-submodules --branch $branch --depth 1 -c advice.detachedHead=false $git_source_url /tmp/raspap-webgui || _install_status 1 "Unable to download files from github"
 
     sudo mv /tmp/raspap-webgui $webroot_dir || _install_status 1 "Unable to move raspap-webgui to web root"
     if [ "$upgrade" == 1 ]; then
@@ -568,6 +602,7 @@ function _install_raspap() {
     _change_file_ownership
     _create_hostapd_scripts
     _create_lighttpd_scripts
+    _install_lighttpd_configs
     _move_config_file
     _default_configuration
     _configure_networking

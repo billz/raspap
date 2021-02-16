@@ -1,4 +1,7 @@
 <?php
+
+use eftec\bladeone\BladeOne;
+
 /* Functions for Networking */
 
 /**
@@ -408,22 +411,93 @@ function ConvertToSecurity($security)
 }
 
 /**
- * Renders a simple PHP template
+ * Renders a blade template from the views folder.
+ * @param string $name - The name of the view to render. A dot notated version of the path. (eg. dhcp.advanced)
+ * @param array $viewData - The data you want passed to your view.  Note that this 
+ * function adds some commonly required variables to the viewData which are used when 
+ * extending 'layouts.app'.  Check that the variable you need is not already included by this function.
+ * @param bool $isAjax - If this value is true, then the function will not add the commonly required variables to
+ * the viewData.  It assumes from this value that you will not extend 'layouts.app' because you just want a small chunk 
+ * of ajax html.
+ * @return string - the result of calling the (new Blade())->run() function
  */
-function renderTemplate($name, $__template_data = [])
+function renderTemplate($name, $viewData = [], $isAjax = false)
 {
-    $file = realpath(dirname(__FILE__) . "/../templates/$name.php");
-    if (!file_exists($file)) {
-        return "template $name ($file) not found";
+
+    if (! $isAjax){
+
+      // there is some data which is required by the layout, so add
+      // it here to save every controller from having to retreive it.
+      // If you need a commonly required value, it may already be here,
+      // so check first. 
+
+      $system = new System();
+
+      $viewData['hostname'] = $system->hostname();
+      $viewData['uptime']   = $system->uptime();
+      $viewData['cores']    = $system->processorCount();
+
+      // mem used
+      $viewData['memused']  = $system->usedMemory();
+      $viewData['memused_status'] = "primary";
+      if ($viewData['memused'] > 90) {
+          $viewData['memused_status'] = "danger";
+          $viewData['memused_led'] = "service-status-down";
+      } elseif ($viewData['memused'] > 75) {
+          $viewData['memused_status'] = "warning";
+          $viewData['memused_led'] = "service-status-warn";
+      } elseif ($viewData['memused'] >  0) {
+          $viewData['memused_status'] = "success";
+          $viewData['memused_led'] = "service-status-up";
+      }
+
+      // cpu load
+      $viewData['cpuload'] = $system->systemLoadPercentage();
+      if ($viewData['cpuload'] > 90) {
+          $viewData['cpuload_status'] = "danger";
+      } elseif ($viewData['cpuload'] > 75) {
+          $viewData['cpuload_status'] = "warning";
+      } elseif ($viewData['cpuload'] >=  0) {
+          $viewData['cpuload_status'] = "success";
+      }
+
+      // cpu temp
+      $viewData['cputemp'] = $system->systemTemperature();
+      if ($viewData['cputemp'] > 70) {
+          $viewData['cputemp_status'] = "danger";
+          $viewData['cputemp_led'] = "service-status-down";
+      } elseif ($viewData['cputemp'] > 50) {
+          $viewData['cputemp_status'] = "warning";
+          $viewData['cputemp_led'] = "service-status-warn";
+      } else {
+          $viewData['cputemp_status'] = "success";
+          $viewData['cputemp_led'] = "service-status-up";
+      }
+
+      // hostapd status
+      $viewData['hostapd'] = $system->hostapdStatus();
+      if ($viewData['hostapd'][0] == 1) {
+          $viewData['hostapd_status'] = "active";
+          $viewData['hostapd_led'] = "service-status-up";
+      } else {
+          $viewData['hostapd_status'] = "inactive";
+          $viewData['hostapd_led'] = "service-status-down";
+      }
+
+
+
+      $viewData['config'] = getConfig();
+      $viewData['theme_url'] = getThemeOpt();
+      $viewData['toggleState'] = getSidebarState();
+      $viewData['bridgedEnable'] = getBridgedState();
+
     }
 
-    if (is_array($__template_data)) {
-        extract($__template_data);
-    }
-
-    ob_start();
-    include $file;
-    return ob_get_clean();
+    $views = __DIR__ . '/../views';
+    $cache = __DIR__ . '/../compiles';
+    //$blade = new BladeOne($views,$cache,BladeOne::MODE_DEBUG); // MODE_DEBUG allows to pinpoint troubles.
+    $blade = new BladeOne($views,$cache);
+    return $blade->run($name, $viewData); // it calls "/views/{$name}.blade.php"
 }
 
 function expandCacheKey($key)
@@ -578,7 +652,7 @@ function getColorOpt()
 }
 function getSidebarState()
 {
-    if ($_COOKIE['sidebarToggled'] == 'true' ) {
+    if (($_COOKIE['sidebarToggled'] ?? 'false') == 'true' ) {
         return"toggled";
     }
 }
@@ -588,7 +662,7 @@ function getBridgedState()
 {
     $arrHostapdConf = parse_ini_file(RASPI_CONFIG.'/hostapd.ini');
     // defaults to false
-    return  $arrHostapdConf['BridgedEnable'];
+    return  $arrHostapdConf['BridgedEnable'] ?? 0 == 1;
 }
 
 // Validates a host or FQDN

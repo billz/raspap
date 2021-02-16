@@ -88,8 +88,42 @@ function DisplayHostAPDConfig()
         $arrConfig['country_code'] = $country_code[0];
     }
 
+    // setup variables for the mode selector on the 'basic' tab
+    $countries_5Ghz_max48ch = RASPI_5GHZ_ISO_ALPHA2;
+    $selectedHwMode = $arrConfig['hw_mode'];
+    if (isset($arrConfig['ieee80211n'])) {
+        if (strval($arrConfig['ieee80211n']) === '1') {
+            $selectedHwMode = 'n';
+        }
+    }
+    if (isset($arrConfig['ieee80211ac'])) {
+        if (strval($arrConfig['ieee80211ac']) === '1') {
+            $selectedHwMode = 'ac';
+        }
+    }
+    if (isset($arrConfig['ieee80211w'])) {
+        if (strval($arrConfig['ieee80211w']) === '2') {
+            $selectedHwMode = 'w';
+        }
+    }
+
+    if (!in_array($arrConfig['country_code'], $countries_5Ghz_max48ch)) {
+        $hwModeDisabled = 'ac';
+        if ($selectedHwMode === $hwModeDisabled) {
+            unset($selectedHwMode);
+        }
+    }
+
+    if ($arrHostapdConf['LogEnable'] == 1) {
+        exec('sudo /bin/chmod o+r /tmp/hostapd.log');
+        $hostapLog = file_get_contents('/tmp/hostapd.log');
+    } else {
+        $hostapLog = null;
+    }
+
     echo renderTemplate(
         "hostapd", compact(
+            "hostapLog",
             "status",
             "serviceStatus",
             "hostapdstatus",
@@ -98,6 +132,7 @@ function DisplayHostAPDConfig()
             "arrConfig",
             "arr80211Standard",
             "selectedHwMode",
+            "hwModeDisabled",
             "arrSecurity",
             "arrEncType",
             "arrHostapdConf"
@@ -181,20 +216,32 @@ function SaveHostAPDConfig($wpa_array, $enc_types, $modes, $interfaces, $status)
         }
     }
     // set AP interface default, override for ap-sta & bridged options
-    $ap_iface = $_POST['interface'];
-    if ($wifiAPEnable) { $ap_iface = 'uap0'; }
-    if ($bridgedEnable) { $ap_iface = 'br0'; }
+    $ap_iface = $_POST['interface']; // the hostap AP interface
+    $cli_iface = $_POST['interface']; // the wifi client interface
+    $session_iface = $_POST['interface']; // the interface that the UI needs to monitor for data usage etc.
+    if ($wifiAPEnable) {
+        // for AP-STA we monitor the uap0 interfacae, 
+        // which is always the ap interface.
+        $ap_iface = 'uap0'; 
+        $session_iface = 'uap0';
+    }
+    if ($bridgedEnable) { 
+        // for bridged mode we monitor the bridge,
+        // but keep the selected interface as AP
+        $session_iface = 'br0';
+        $cli_iface = 'br0'; 
+    }
 
     // persist user options to /etc/raspap
     $cfg = [];
-    $cfg['WifiInterface'] = $_POST['interface'];
+    $cfg['WifiInterface'] = $ap_iface;
     $cfg['LogEnable'] = $logEnable;
     // Save previous Client mode status when Bridged
     $cfg['WifiAPEnable'] = ($bridgedEnable == 1 ? $arrHostapdConf['WifiAPEnable'] : $wifiAPEnable);
     $cfg['BridgedEnable'] = $bridgedEnable;
-    $cfg['WifiManaged'] = $ap_iface;
+    $cfg['WifiManaged'] = $cli_iface;
     write_php_ini($cfg, RASPI_CONFIG.'/hostapd.ini');
-    $_SESSION['ap_interface'] = $ap_iface;
+    $_SESSION['ap_interface'] = $session_iface;
 
     // Verify input
     if (empty($_POST['ssid']) || strlen($_POST['ssid']) > 32) {
@@ -248,7 +295,7 @@ function SaveHostAPDConfig($wpa_array, $enc_types, $modes, $interfaces, $status)
     $_POST['max_num_sta'] = $_POST['max_num_sta'] < 1 ? null : $_POST['max_num_sta'];
 
     if ($good_input) {
-        $return = updateHostapdConfig($ignore_broadcast_ssid,$wifiAPEnble,$bridgedEnable);
+        $return = updateHostapdConfig($ignore_broadcast_ssid,$wifiAPEnable,$bridgedEnable);
 
         // Fetch dhcp-range, lease time from system config
         $syscfg = parse_ini_file(RASPI_DNSMASQ_PREFIX.$ap_iface.'.conf', false, INI_SCANNER_RAW);
@@ -356,7 +403,7 @@ function SaveHostAPDConfig($wpa_array, $enc_types, $modes, $interfaces, $status)
  *
  * @return boolean $result
  */
-function updateHostapdConfig($ignore_broadcast_ssid,$wifiAPEnble,$bridgedEnable)
+function updateHostapdConfig($ignore_broadcast_ssid, $wifiAPEnable, $bridgedEnable)
 {
     // Fixed values
     $country_code = $_POST['country_code'];
