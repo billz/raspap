@@ -1,5 +1,12 @@
-<?php header("Content-Type: text/css; charset=utf-8"); ?>
 <?php
+header("Content-Type: text/css; charset=utf-8");
+$filemtime = filemtime(__FILE__);
+header('Last-Modified: ' . gmdate('D, d M Y H:i:s T', $filemtime));
+if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) && strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $filemtime)
+{
+    header('HTTP/1.0 304 Not Modified');
+    exit;
+}
 require_once '../../includes/functions.php';
 $color = getColorOpt();
 ?>
@@ -16,10 +23,6 @@ body {
   color: #212529;
 }
 
-.page-header {
-  margin: 20px 0 20px;
-}
-
 .navbar-logo {
   margin-top: 0.5em;
   margin-left: 0.5em;
@@ -27,13 +30,34 @@ body {
 
 /* Small devices (portrait phones, up to 576px) */
 @media (max-width: 576px) {
-  .container-fluid, .card-body, .col-md-6 { padding-left: 0.5rem; padding-right: 0.5rem; }
-  .card .card-header { padding: .75rem .5rem; font-size: 1.0rem; }
-  .row { margin-left: 0rem; margin-right: 0rem; }
-  .col-lg-12 { padding-right: 0.25rem; padding-left: 0.25rem; }
-  .form-group.col-md-6 { margin-left: -0.5rem; }
-  .js-wifi-stations { margin-left: -0.5rem; margin-right: -0.5rem; }
-  h4.mt-3 { margin-left: 0.5rem; }
+  .container-fluid,
+  .card-body,
+  .col-md-6 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .card .card-header {
+    padding: .75rem .5rem;
+    font-size: 1.0rem;
+  }
+  .row {
+    margin-left: 0rem;
+    margin-right: 0rem;
+  }
+  .col-lg-12 {
+    padding-right: 0.25rem;
+    padding-left: 0.25rem;
+  }
+  .form-group.col-md-6 {
+    margin-left: -0.5rem;
+  }
+  .js-wifi-stations {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+  h4.mt-3 {
+    margin-left: 0.5rem;
+  }
 }
 
 .sidebar {
@@ -90,7 +114,7 @@ a.nav-link.active {
 }
 
 .sidebar .nav-item .nav-link {
-  padding: 0.6rem 0.6rem 0.6rem 1.0rem;
+  padding: 0.6rem;
 }
 
 .alert-success {
@@ -140,19 +164,27 @@ i.fa.fa-bars:hover{
 }
 
 .service-status {
-  border-width: 0;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+.service-status .icon,
+.service-status .text {
+  display: flex;
+  font-size: 0.8rem;
+  align-items: center;
 }
 
 .service-status-up {
-  color: #a1ec38;
+  color: #a1ec38 !important;
 }
 
 .service-status-warn {
-  color: #f6f044;
+  color: #f6f044 !important;
 }
 
 .service-status-down {
-  color: #f80107;
+  color: #f80107 !important;
   animation: flash 1s linear infinite;
 }
 @keyframes flash {
@@ -160,7 +192,7 @@ i.fa.fa-bars:hover{
     opacity: 0;
   }
 }
- 
+
 .logoutput {
   width:100%;
   height: 20rem;
@@ -196,7 +228,8 @@ pre.unstyled {
 
 .sidebar.toggled .nav-item .nav-link span {
   display: none;
-} .sidebar .nav-item .nav-link i,
+}
+.sidebar .nav-item .nav-link i,
 .sidebar .nav-item .nav-link span {
     font-size: 1.0rem;
 }
@@ -235,16 +268,3 @@ canvas#divDBChartBandwidthhourly {
   opacity: 0;
   color: #90ee90;
 }
-
-.check-progress {
-  color: #999;
-}
-
-.fa-check {
-  color: #90ee90;
-}
-
-.fa-times {
-  color: #ff4500;
-}
-

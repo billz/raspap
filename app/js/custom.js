@@ -351,18 +351,11 @@ $(document).on("keyup", ".js-validate-psk", function(e) {
     }
 });
 
-$(function() {
-    $('#theme-select').change(function() {
-        var theme = themes[$( "#theme-select" ).val() ]; 
-        set_theme(theme);
-   });
-});
-
-function set_theme(theme) {
-    $('link[title="main"]').attr('href', 'app/css/' + theme);
-    // persist selected theme in cookie 
-    setCookie('theme',theme,90);
-}
+$(document).on("change", "#theme-select", function(e) {
+  $('link[data-type=theme]').prop('disabled', true)
+  $('link[href$="'+e.target.value+'"]').prop('disabled', false)
+  setCookie('theme', e.target.value, 90)
+})
 
 function setCookie(cname, cvalue, exdays) {
     var d = new Date();

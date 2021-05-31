@@ -51,7 +51,7 @@ $config = getConfig();
 $output = $return = 0;
 $page = $_SERVER['PATH_INFO'];
 
-$theme_url = getThemeOpt();
+$theme = getThemeOpt();
 $toggleState = getSidebarState();
 $bridgedEnabled = getBridgedState();
 
@@ -83,7 +83,18 @@ $bridgedEnabled = getBridgedState();
     <link href="dist/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
 
     <!-- Custom CSS -->
-    <link href="<?php echo $theme_url; ?>" title="main" rel="stylesheet">
+    <link href="app/css/custom.php" title="main" rel="stylesheet">
+    <?php foreach (array_slice(availableThemes(), 1) as $file => $name): ?>
+    <link href="app/css/<?php echo $file ?>" title="<?php echo $name ?>" data-type="theme" rel="stylesheet" disabled>
+    <?php endforeach ?>
+    <script type="text/javascript">
+      document.addEventListener("DOMContentLoaded", function() {
+        var cookies = "; " + document.cookie
+        var value = cookies.split("; theme=").pop().split(";").shift()
+        var stylesheet = document.querySelector('link[href$="'+value+'"]')
+        if (stylesheet) stylesheet.removeAttribute('disabled')
+      }, false)
+    </script>
 
     <link rel="shortcut icon" type="image/png" href="app/icons/favicon.png?ver=2.0">
     <link rel="apple-touch-icon" sizes="180x180" href="app/icons/apple-touch-icon.png">

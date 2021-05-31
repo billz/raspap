@@ -328,10 +328,10 @@ function SelectorOptions($name, $options, $selected = null, $id = null, $event =
     foreach ($options as $opt => $label) {
         $select = '';
         $key = isAssoc($options) ? $opt : $label;
-        if ($key == $selected) {
+        if ($key === $selected) {
             $select = ' selected="selected"';
         }
-        if ($key == $disabled) {
+        if ($key === $disabled) {
             $disabled = ' disabled';
         }
         echo '<option value="'.htmlspecialchars($key, ENT_QUOTES).'"'.$select.$disabled.'>'.
@@ -604,12 +604,7 @@ function formatDateAgo($datetime, $full = false)
 
 function getThemeOpt()
 {
-    if (!isset($_COOKIE['theme'])) {
-        $theme = "custom.php";
-    } else {
-        $theme = $_COOKIE['theme'];
-    }
-    return 'app/css/'.htmlspecialchars($theme, ENT_QUOTES);
+    return htmlspecialchars($_COOKIE['theme'], ENT_QUOTES);
 }
 
 function getColorOpt()
@@ -641,10 +636,17 @@ function validate_host($host) {
   return preg_match('/^([a-z\d](-*[a-z\d])*)(\.([a-z\d](-*[a-z\d])*))*$/i', $host);
 }
 
+function availableThemes() {
+  return [
+    ""               => "RaspAP (default)",
+    "hackernews.css" => "HackerNews",
+    "lightsout.css"  => "Lights Out"
+  ];
+}
+
 function evalHexSequence($string) {
     $evaluator = function ($input) {
 	return hex2bin($input[1]);
     };
     return preg_replace_callback('/\\\x(..)/', $evaluator, $string);
 }
-
